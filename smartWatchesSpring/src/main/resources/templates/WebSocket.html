@@ -1,0 +1,374 @@
+<!DOCTYPE html>  
+<html>
+<head>
+<meta charset="utf-8" />  
+<title>WebSocket</title>  
+
+</head>
+<body>
+<div id="echart"align="center"style="width: 1500px;height:400px;"></div>
+<div align="center"style=" margin:auto; width:100%; height:102px; border:solid 1px #000000;">
+<div id="echart1"style=" width:32%; height:250px; border:solid 1px blue; float:left; margin-left:1%;"></div>
+<div id="echart2"style=" width:32%; height:250px; border:solid 1px red; float:left; margin-left:1%;"></div>
+<div id="echart3"style=" width:32%; height:250px; border:solid 1px yellow; float:left; margin-left:1%;"></div>
+</div>
+<div align="center">
+<button id="send" onclick="btn1()">打开空调</button> 
+<button id="send" onclick="btn2()">关闭空调</button> 
+<button id="send" onclick="btn3()">打开灯光</button> 
+<button id="send" onclick="btn4()">关闭灯光</button> 
+<button id="send" onclick="btn5()">打开门</button> 
+<button id="send" onclick="btn6()">关闭门</button> 
+<button id="send" onclick="btn7()">打开除湿器</button> 
+<button id="send" onclick="btn8()">关闭除湿器</button> 
+<button onclick="window.location.href='/userinfo'" >用户信息</button> 
+</div>
+<div align="center"><div id="output"></div> </div>
+</body>
+<script src="jquery-3.6.0.min.js"></script>
+<script src="https://cdn.bootcss.com/echarts/4.2.1-rc1/echarts.min.js"></script>
+<script language="javascript"type="text/javascript">
+var el,elURL,url,para,result,arr;
+el = document.getElementById("p1");
+elURL= window.location.search;//获取get请求的参数 获取到数据，是以？传过来的值 “?hid=lemon&seth=seth”
+result={};//存储对象
+arr=[];
+var TempArr = [];
+var HumidityArr = [];
+var DateArr = [];
+var BrightnessArr = [];
+var f_status;
+var s_status;
+var a_status;
+var option;
+var option1;
+var option2;
+var option3;
+ //通过解析字符串，获取确定的数据。
+ function paraURL(url){
+   //从第二个字符开始截取，获取到第二个开始后面所有的字符
+   //url=url.substr(1);或url=url.substring(1);同下面这个
+   url= url.split("?")[1];//hid=lemon&seth=seth
+   para =url.split("&");  //分割字符串  --> 产生字符串数组
+   //遍历数组中的每一个元素
+  for(var i=0;i<para.length;i++){
+      arr = para[i].split('=');
+      var name=arr[0];
+      var value=arr[1];
+//unescape加密
+     //result[name]=unescape(value);
+
+result[name]=encodeURI(value); //解决中文乱码问题
+  }
+  return result;
+ }
+ var res=paraURL(elURL)
+var websocket;
+    var wsUri ="ws://127.0.0.1:8080/websocket/"+res.index; 
+    var output;
+    function btn1(){
+    	doSend("{\"controll\":1}"); 
+    }
+    function btn2(){
+    	doSend("{\"controll\":2}");  
+    }
+    function btn3(){
+    	doSend("{\"controll\":3}");  
+    }
+    function btn4(){
+    	doSend("{\"controll\":4}");  
+    }
+    function btn5(){
+    	doSend("{\"controll\":5}");  
+    }
+    function btn6(){
+    	doSend("{\"controll\":6}");   
+    }
+    function btn7(){
+    	doSend("{\"controll\":7}");  
+    }
+    function btn8(){
+    	doSend("{\"controll\":8}");  
+    }
+    function init() { 
+        output = document.getElementById("output"); 
+        testWebSocket(); 
+    }  
+ 
+    function testWebSocket() {
+        websocket = new WebSocket(wsUri);
+        websocket.onopen = function(evt) { 
+            onOpen(evt) 
+        }; 
+        //websocket.onclose = function(evt) { 
+            //onClose(evt) 
+        //}; 
+        websocket.onmessage = function(evt) { 
+            onMessage(evt) 
+        }; 
+        websocket.onerror = function(evt) { 
+            onError(evt) 
+        }; 
+    }  
+ 
+    function onOpen(evt) {
+        doSend("{\"controll\":\"subscribe\"}"); 
+    }  
+ 
+    function onClose(evt) { 
+        writeToScreen("DISCONNECTED"); 
+    }  
+ 
+    function onMessage(evt) {
+    		var time = new Date();
+    		var obj = JSON.parse(evt.data)
+        	console.log(obj);
+            TempArr.push(obj.temp);
+            HumidityArr.push(obj.humidity);
+            BrightnessArr.push(obj.brightness);
+            DateArr.push(time.toLocaleTimeString());
+            f_status =obj.f_status;
+            s_status =obj.s_status;
+            a_status =obj.a_status;
+            echart01();
+            echart02();
+            echart03();
+            echart04();
+    }
+ 
+    function onError(evt) { 
+        writeToScreen('<span style="color: red;">ERROR:</span> '+ evt.data); 
+    }  
+ 
+    function doSend(message) {
+        websocket.send(message); 
+    }  
+ 
+    function writeToScreen(message) { 
+        var pre = document.createElement("p"); 
+        pre.style.wordWrap = "break-word"; 
+        pre.innerHTML = message; 
+        output.appendChild(pre); 
+    }  
+    function echart01() {
+    var myChart = echarts.init(document.getElementById("echart"));
+    option = {
+    		  title: {
+    		    text: '数据表'
+    		  },
+    		  tooltip: {
+    		    trigger: 'axis'
+    		  },
+    		  legend: {},
+    		  toolbox: {
+    		    show: true,
+    		    feature: {
+    		      dataZoom: {
+    		        yAxisIndex: 'none'
+    		      },
+    		      dataView: { readOnly: false },
+    		      magicType: { type: ['line', 'bar'] },
+    		      restore: {},
+    		      saveAsImage: {}
+    		    }
+    		  },
+    		  xAxis: {
+    		    type: 'category',
+    		    boundaryGap: false,
+    		    data: DateArr
+    		  },
+    		  yAxis: {
+    		    type: 'value',
+    		    axisLabel: {
+    		      formatter: '{value}'
+    		    }
+    		  },
+    		  series: [
+    		    {
+    		      name: '温度',
+    		      type: 'line',
+    		      data: TempArr,
+    		      markPoint: {
+    		        data: [
+    		          { type: 'max', name: 'Max' },
+    		          { type: 'min', name: 'Min' }
+    		        ]
+    		      },
+    		      markLine: {
+    		        data: [
+    		          { type: 'average', name: 'Avg' },
+    		          [
+    		            {
+    		              symbol: 'none',
+    		              x: '90%',
+    		              yAxis: 'max'
+    		            },
+    		            {
+    		              symbol: 'circle',
+    		              label: {
+    		                position: 'start',
+    		                formatter: 'Max'
+    		              },
+    		              type: 'max',
+    		              name: '最高点'
+    		            }
+    		          ]
+    		        ]
+    		      }
+    		    },
+    		    {
+    		      name: '湿度',
+    		      type: 'line',
+    		      data: HumidityArr,
+    		      markPoint: {
+    		        data: [{ type: 'max', name: 'Max' },
+      		          { type: 'min', name: 'Min' }]
+    		      },
+    		      markLine: {
+    		        data: [
+    		          { type: 'average', name: 'Avg' },
+    		          [
+    		            {
+    		              symbol: 'none',
+    		              x: '90%',
+    		              yAxis: 'max'
+    		            },
+    		            {
+    		              symbol: 'circle',
+    		              label: {
+    		                position: 'start',
+    		                formatter: 'Max'
+    		              },
+    		              type: 'max',
+    		              name: '最高点'
+    		            }
+    		          ]
+    		        ]
+    		      }
+    		    },{
+    		      name: '光照强度',
+    		      type: 'line',
+    		      data: BrightnessArr,
+    		      markPoint: {
+    		        data: [
+    		          { type: 'max', name: 'Max' },
+    		          { type: 'min', name: 'Min' }
+    		        ]
+    		      },
+    		      markLine: {
+    		        data: [
+    		          { type: 'average', name: 'Avg' },
+    		          [
+    		            {
+    		              symbol: 'none',
+    		              x: '90%',
+    		              yAxis: 'max'
+    		            },
+    		            {
+    		              symbol: 'circle',
+    		              label: {
+    		                position: 'start',
+    		                formatter: 'Max'
+    		              },
+    		              type: 'max',
+    		              name: '最高点'
+    		            }
+    		          ]
+    		        ]
+    		      }
+    		    }
+    		  ]
+    		};
+    option && myChart.setOption(option);
+    }
+    function echart02() {
+        var myChart = echarts.init(document.getElementById("echart1"));
+    option = {
+    		  tooltip: {
+    		    formatter: '{a} <br/>{b} : {c}%'
+    		  },
+    		  series: [
+    		    {
+    		      name: '火焰传感器',
+    		      type: 'gauge',
+    		      min: 0,             
+             	  max: 255,
+    		      progress: {
+    		        show: true
+    		      },
+    		      detail: {
+    		        valueAnimation: true,
+    		        formatter: '{value}'
+    		      },
+    		      data: [
+    		        {
+    		          value: f_status
+    		        }
+    		      ]
+    		    }
+    		  ]
+    		};
+    option && myChart.setOption(option);
+    }
+    function echart03() {
+        var myChart = echarts.init(document.getElementById("echart2"));
+    option = {
+  		  tooltip: {
+  		    formatter: '{a} <br/>{b} : {c}%'
+  		  },
+  		  series: [
+  		    {
+  		      name: '烟雾传感器',
+  		      type: 'gauge',
+  		   	  min: 0,             
+         	  max: 255, 
+  		      progress: {
+  		        show: true
+  		      },
+  		      detail: {
+  		        valueAnimation: true,
+  		        formatter: '{value}'
+  		      },
+  		      data: [
+  		        {
+  		          value: s_status
+  		        }
+  		      ]
+  		    }
+  		  ]
+  		};
+    option && myChart.setOption(option);
+    }
+    function echart04() {
+        var myChart = echarts.init(document.getElementById("echart3"));
+    option = {
+  		  tooltip: {
+  		    formatter: '{a} <br/>{b} : {c}%'
+  		  },
+  		  series: [
+  		    {
+  		      name: '摇动传感器',
+  		      type: 'gauge',
+  		  	  min: 0,             
+           	  max: 1023, 
+  		      progress: {
+  		        show: true
+  		      },
+  		      detail: {
+  		        valueAnimation: true,
+  		        formatter: '{value}'
+  		      },
+  		      data: [
+  		        {
+  		          value: a_status
+  		        }
+  		      ]
+  		    }
+  		  ]
+  		};
+    option && myChart.setOption(option);
+}
+window.addEventListener("load", init, false);
+
+</script>  
+</html>
